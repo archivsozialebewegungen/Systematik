@@ -1,0 +1,9 @@
+greenlet==1.1.0
+importlib-metadata==4.6.1
+injector==0.18.4
+psycopg2==2.9.1
+PyQt5==5.12.2
+PyQt5-sip==12.8.1
+SQLAlchemy==1.4.20
+typing-extensions==3.10.0.0
+zipp==3.5.0
