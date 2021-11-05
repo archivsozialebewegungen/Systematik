@@ -13,35 +13,109 @@ class NoSelectionException(Exception):
     pass
 
 class SystematikQTreeWidgetItem(QTreeWidgetItem):
+    """
+    This is the GUI representation of a SystematikNode, all
+    None values in the SystematikNode object need to be replaced
+    by empty strings.
+    """
+    
+    NODE_TYPES = ("Gliederungspunkt", "Physischer Bestand", "Digitaler Bestand")
+    DIGITALISIERUNGS_STATUS = ("nicht digitalisiert", "teilweise digitalisiert", "vollständig digitalisiert")
     
     def __init__(self, parent, systematik_node: SystematikNode):
         
-        if systematik_node.db_kommentar is not None:
-            beschreibung = "* %s" % systematik_node.beschreibung
-        else:
-            beschreibung = systematik_node.beschreibung
-        
-        super().__init__(parent, ("%s" % systematik_node.identifier, beschreibung))
         self.systematik_node = systematik_node
+        super().__init__(parent, ("%s" % systematik_node.identifier, self.display_text))
+    
+    def set_description(self, new_description):
         
-    def alter_description(self, new_description):
-        
-        self.systematik_node.beschreibung = new_description
-        self.setText(1, self.beschreibung_display)
+        if new_description.strip() == "":
+            self.systematik_node.beschreibung = None
+        else:
+            self.systematik_node.beschreibung = new_description
+        self.setText(1, self.display_text)
 
-    def alter_kommentar(self, new_comment):
+    def get_description(self):
         
-        self.systematik_node.kommentar = new_comment
-        self.setText(1, self.beschreibung_display)
-        
-    def _get_beschreibung_display(self):
-
-        if self.systematik_node.db_kommentar is not None:
-            return "* %s" % self.systematik_node.beschreibung
+        if self.systematik_node.beschreibung is None:
+            return ""
         else:
             return self.systematik_node.beschreibung
+
+    def set_kommentar(self, new_comment):
         
-    beschreibung_display = property(_get_beschreibung_display)
+        if new_comment.strip() == "":
+            self.systematik_node.kommentar = None
+        else:
+            self.systematik_node.kommentar = new_comment
+        self.setText(1, self.display_text)
+        
+    def get_kommentar(self):
+        
+        if self.systematik_node.kommentar is None:
+            return ""
+        else:
+            return self.systematik_node.kommentar
+
+    def set_entfernt(self, new_entfernt):
+        
+        if new_entfernt.strip() == "":
+            self.systematik_node.entfernt = None
+        else:
+            self.systematik_node.entfernt = new_entfernt
+        self.setText(1, self.display_text)
+
+    def get_entfernt(self):
+        
+        if self.systematik_node.entfernt is None:
+            return ""
+        else:
+            return self.systematik_node.entfernt
+
+    def set_startjahr(self, new_startjahr):
+        
+        self.systematik_node.startjahr = new_startjahr
+        self.setText(1, self.display_text)
+
+    def get_startjahr(self):
+        
+        return self.systematik_node.startjahr
+
+    def set_endjahr(self, new_endjahr):
+        
+        self.systematik_node.endjahr = new_endjahr
+        self.setText(1, self.display_text)
+
+    def get_endjahr(self):
+        
+        return self.systematik_node.endjahr
+
+    def _get_display_text(self):
+
+        if self.systematik_node.beschreibung is None:
+            desc = "Keine Beschreibung!"
+        else:
+            desc = self.systematik_node.beschreibung
+
+        if self.systematik_node.kommentar is not None:
+            desc = "* %s" % desc
+            
+        if self.systematik_node.startjahr is not None or self.systematik_node.endjahr is not None:
+            if self.systematik_node.startjahr is None:
+                desc = "%s (bis %d)" % (desc, self.systematik_node.endjahr)
+            elif self.systematik_node.endjahr is None:
+                desc = "%s (ab %d)" % (desc, self.systematik_node.startjahr)
+            else:
+                desc = "%s (%d - %d)" % (desc, self.systematik_node.startjahr, self.systematik_node.endjahr)
+                
+        return desc
+
+    beschreibung = property(get_description, set_description)        
+    kommentar = property(get_kommentar, set_kommentar)        
+    entfernt = property(get_entfernt, set_entfernt)        
+    startjahr = property(get_startjahr, set_startjahr)        
+    endjahr = property(get_endjahr, set_endjahr)        
+    display_text = property(_get_display_text)
 
 class SystematikQTreeWidget(QTreeWidget):
     
@@ -152,6 +226,10 @@ class SystematikTreeWidgetService:
         
         return self.dao.is_used(item_widget.systematik_node.identifier)
     
+    def first_usage(self, item_widget: SystematikQTreeWidget):
+        
+        return self.dao.get_first_usage(item_widget.systematik_node.identifier)
+
     def save(self, item_widget: SystematikQTreeWidget):
         
         if self.dao.exists(item_widget.systematik_node.identifier):
@@ -162,6 +240,9 @@ class SystematikTreeWidgetService:
         
     def delete(self, item_widget: SystematikQTreeWidget):
 
+        if item_widget.systematik_node.previous_sibling != None:
+            item_widget.systematik_node.previous_sibling.next_sibling = None
+        item_widget.systematik_node.parent.children.remove(item_widget.systematik_node)
         self.dao.delete_node(item_widget.systematik_node)
         self._tree = None
     

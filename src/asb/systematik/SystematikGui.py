@@ -10,6 +10,7 @@ from asb.systematik.SystematikTreeWidgetService import SystematikTreeWidgetServi
     NoSelectionException, SystematikQTreeWidget, SystematikQTreeWidgetItem
 from PyQt5 import sip
 from PyQt5.QtCore import QSize
+from traceback import print_exc
 
 class NewSubpointSelectionDialog(QDialog):
     
@@ -86,18 +87,71 @@ class DescriptionEditDialog(QDialog):
         self.kommentar_entry.textChanged.connect(self.update_kommentar)
         self.layout.addWidget(self.kommentar_entry)
         
+        label = QLabel("Entfernt:")
+        self.layout.addWidget(label)
+        self.entfernt_entry = QPlainTextEdit(item.systematik_node.entfernt)
+        self.entfernt_entry.textChanged.connect(self.update_entfernt)
+        self.layout.addWidget(self.entfernt_entry)
+
+        label = QLabel("Anfangsjahr:")
+        self.layout.addWidget(label)
+        self.startjahr_entry = QLineEdit(self._format_jahr(item.systematik_node.startjahr))
+        self.startjahr_entry.textChanged.connect(self.update_startjahr)
+        self.layout.addWidget(self.startjahr_entry)
+
+        label = QLabel("Abschlussjahr:")
+        self.layout.addWidget(label)
+        self.endjahr_entry = QLineEdit(self._format_jahr(item.systematik_node.endjahr))
+        self.endjahr_entry.textChanged.connect(self.update_endjahr)
+        self.layout.addWidget(self.endjahr_entry)
+
         self.layout.addWidget(label)
         self.layout.addWidget(beschreibung_entry)
         self.layout.addWidget(self.buttonBox)
         self.setLayout(self.layout)
         
+    def _format_jahr(self, jahr):
+        
+        if jahr is None:
+            return ""
+        else:
+            return "%d" % jahr    
+        
     def update_beschreibung(self, text):
         
-        self.item.alter_description(text)
+        self.item.beschreibung = text
 
     def update_kommentar(self):
         
-        self.item.alter_kommentar(self.kommentar_entry.toPlainText())
+        self.item.kommentar = self.kommentar_entry.toPlainText()
+
+    def update_entfernt(self):
+        
+        self.item.entfernt = self.entfernt_entry.toPlainText()
+
+    def _check_jahr(self, widget):
+        """
+        Returns integer or none depending on the text entry value.
+        If it is not an integer, the text entry will be reset to an
+        empty string.
+        """
+
+        try:
+            return int(widget.text())
+        except Exception as e:
+            widget.setText("")
+        return None
+
+    def update_startjahr(self, text):
+
+        jahr = self._check_jahr(self.startjahr_entry)
+        self.item.startjahr = jahr
+
+    def update_endjahr(self, text):
+
+        jahr = self._check_jahr(self.endjahr_entry)
+        self.item.endjahr = jahr
+                
 
 class Window(QWidget):
     
@@ -155,22 +209,35 @@ class Window(QWidget):
         self.setLayout(mainLayout)
         
         self.show()
-        
+    
     def edit_description(self):
 
         try:
             item_widget = self.tree_widget.first_selected()
+            
             old_description = item_widget.systematik_node.beschreibung
-            old_comment = item_widget.systematik_node.db_kommentar
+            old_comment = item_widget.systematik_node.kommentar
+            old_entfernt = item_widget.systematik_node.entfernt
+            old_startjahr = item_widget.systematik_node.startjahr
+            old_endjahr = item_widget.systematik_node.endjahr
+            
             dlg = DescriptionEditDialog(item_widget)
             if dlg.exec():
                 # Save if there are changes
-                if item_widget.systematik_node.beschreibung != old_description or item_widget.systematik_node.db_kommentar != old_comment:
+                if item_widget.systematik_node.beschreibung != old_description or \
+                   item_widget.systematik_node.kommentar != old_comment or \
+                   item_widget.systematik_node.entfernt != old_entfernt or \
+                   item_widget.systematik_node.startjahr != old_startjahr or \
+                   item_widget.systematik_node.endjahr != old_endjahr:
                     self.tree_widget_service.save(item_widget)
             else:
                 # Reset after cancel
                 item_widget.alter_description(old_description)
                 item_widget.alter_kommentar(old_comment)
+                item_widget.alter_entfernt(old_entfernt)
+                item_widget.alter_startjahr(old_startjahr)
+                item_widget.alter_endjahr(old_endjahr)
+                
         except NoSelectionException as e:
             msg = QMessageBox(self)
             msg.setWindowTitle("Keine Auswahl getroffen")
@@ -256,7 +323,8 @@ class Window(QWidget):
             if self.tree_widget_service.is_used(selected_widget):
                 msg = QMessageBox(self)
                 msg.setWindowTitle("Fehler!")
-                msg.setText("Der Eintrag wird benutzt und kann nicht\ngelöscht werden!")
+                usage = self.tree_widget_service.first_usage(selected_widget)
+                msg.setText("Der Eintrag wird benutzt und kann nicht\ngelöscht werden!\n(%s)" % usage)
                 msg.setIcon(QMessageBox.Critical)
                 msg.exec()
                 return

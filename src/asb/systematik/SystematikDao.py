@@ -25,7 +25,10 @@ SYSTEMATIK_TABLE = Table(
     Column('roemisch', Integer),
     Column('sub', Integer),
     Column('beschreibung', String, nullable=False),
-    Column('kommentar', String, nullable=True)
+    Column('kommentar', String, nullable=True),
+    Column('entfernt', String, nullable=True),
+    Column('startjahr', Integer, nullable=True),
+    Column('endjahr', Integer, nullable=True)
 )
 
 class DeletionForbiddenException(Exception):
@@ -186,15 +189,26 @@ class SystematikIdentifier:
     db_sub = property(_db_sub)
         
 class SystematikNode:
+    """
+    This class represents 1:1 the database table Systematik, null values in the
+    database are represented as None
+    """
     
-    def __init__(self, identifier: SystematikIdentifier, beschreibung: str, kommentar=None):
+    def __init__(self, identifier: SystematikIdentifier, beschreibung: str,
+                 kommentar=None, entfernt=None, startjahr=None, endjahr=None,
+                 nodetype=None,
+                 digistate=None,
+                 id=None):
         
         self.identifier = identifier
         self.beschreibung = beschreibung
-        if kommentar is None:
-            self.kommentar = ""
-        else:
-            self.kommentar = None
+        self.kommentar = kommentar
+        self.entfernt = entfernt
+        self.startjahr = startjahr
+        self.nodetype = nodetype
+        self.digistate = digistate
+        self.id = id
+        self.endjahr = endjahr
         self.parent = None
         self.children = []
         self.previous_sibling = None
@@ -269,15 +283,6 @@ class SystematikNode:
         points[-1] = "%s" % (int(points[-1]) + 1)
         punkt = '.'.join(points)
         return [SystematikNode(SystematikIdentifier(punkt), "Keine Beschreibung")]
-    
-    def _get_db_kommentar(self):
-        
-        if self.kommentar == "":
-            return None
-        else:
-            return self.kommentar
-        
-    db_kommentar = property(_get_db_kommentar)
         
 class SystematikTreeIterator:
     
@@ -369,14 +374,29 @@ class SystematikDao:
             if sub == 0:
                 sub = None
             identifier = SystematikIdentifier(row[SYSTEMATIK_TABLE.c.punkt], roemisch, sub)
-            nodes[identifier] = SystematikNode(identifier, row[SYSTEMATIK_TABLE.c.beschreibung], row[SYSTEMATIK_TABLE.c.kommentar])
+            nodes[identifier] = SystematikNode(identifier=identifier, beschreibung=row[SYSTEMATIK_TABLE.c.beschreibung], 
+                                               kommentar=row[SYSTEMATIK_TABLE.c.kommentar],
+                                               entfernt=row[SYSTEMATIK_TABLE.c.entfernt],
+                                               startjahr=row[SYSTEMATIK_TABLE.c.startjahr],
+                                               endjahr=row[SYSTEMATIK_TABLE.c.endjahr],
+                                               nodetype=row[SYSTEMATIK_TABLE.c.nodetype],
+                                               digistate=row[SYSTEMATIK_TABLE.c.digistate],
+                                               id=row[SYSTEMATIK_TABLE.c.id]
+                                               )
         return tree_implementation(nodes)
     
     def insert_node(self, node):
         
         stmt = insert(SYSTEMATIK_TABLE).\
             values(punkt=node.identifier.punkt, roemisch=node.identifier.db_roemisch,
-                   sub=node.identifier.db_sub, beschreibung=node.beschreibung, kommentar=node.db_kommentar)
+                   sub=node.identifier.db_sub, beschreibung=node.beschreibung,
+                   kommentar=node.kommentar,
+                   entfernt=node.entfernt,
+                   startjahr=node.startjahr,
+                   endjahr=node.endjahr,
+                   nodetype=node.nodetype,
+                   digistate=node.digistate
+                   )
         self.connection.execute(stmt)
         
     def delete_node(self, node):
@@ -404,7 +424,11 @@ class SystematikDao:
         if sub is None:
             sub = 0
         stmt = update(SYSTEMATIK_TABLE).\
-            values(beschreibung=node.beschreibung, kommentar=node.kommentar).\
+            values(beschreibung=node.beschreibung,
+                   kommentar=node.kommentar,
+                   entfernt=node.entfernt,
+                   startjahr=node.startjahr,
+                   endjahr=node.endjahr).\
             where(and_(SYSTEMATIK_TABLE.c.punkt == node.identifier.punkt,
                        SYSTEMATIK_TABLE.c.roemisch == roemisch,
                        SYSTEMATIK_TABLE.c.sub == sub))
@@ -431,7 +455,7 @@ class SystematikDao:
             return True
     
         stmt = text("select 1 where exists (select 1 from zeitschriften where systematik1 = '%s' " % identifier +
-                    "or systematik2 = '%s' or systematik2 = '%s')" % (identifier, identifier))
+                    "or systematik2 = '%s' or systematik3 = '%s')" % (identifier, identifier))
         result = self.connection.execute(stmt)
         for row in result.fetchall():
             return True
@@ -448,6 +472,54 @@ class SystematikDao:
             return True
 
         return False
+
+    def get_first_usage(self, identifier):
+        
+        brosch_titel = self.get_first_brosch_usage(identifier)
+        if brosch_titel != None:
+            return "Broschüre \"%s\"" % brosch_titel
+        zeitsch_titel = self.get_first_zeitsch_usage(identifier)
+        if zeitsch_titel != None:
+            return "Zeitschrift \"%s\"" % zeitsch_titel
+        alex_id = self.get_first_alexandria_usage(identifier)
+        if alex_id != None:
+            return "Alexandria-Dokument Nr. %d" % alex_id
+        
+        raise Exception("Keine Nutzung für Systematikpunkt %s gefunden!" % identifier)
+
+    def get_first_zeitsch_usage(self, identifier):
+
+        stmt = text("select titel from zeitschriften where systematik1 = '%s' " % identifier +
+                    "or systematik2 = '%s' or systematik3 = '%s' limit 1" % (identifier, identifier))
+        result = self.connection.execute(stmt)
+        for row in result.fetchall():
+            return row['titel']
+        return None
+
+    def get_first_brosch_usage(self, identifier):
+
+        stmt = text("select titel from broschueren where systematik1 = " + 
+                    "'%s' or systematik2 = '%s' limit 1" % (identifier, identifier))
+        result = self.connection.execute(stmt)
+        for row in result.fetchall():
+            return row['titel']
+        return None
+    
+    def get_first_alexandria_usage(self, identifier):
+        
+        stmt = text("select hauptnr from dokument where standort = '%s' limit 1" % identifier)
+        result = self.connection.execute(stmt)
+        for row in result.fetchall():
+            return row['hauptnr']
+        
+        stmt = text("select hauptnr from sverweis where systematik = '%s' and roemisch = %d and sub = %d limit 1" % 
+                    (identifier.punkt, identifier.db_roemisch, identifier.db_sub))
+        result = self.connection.execute(stmt)
+        for row in result.fetchall():
+            return row['hauptnr']
+        
+        return None
+
 
 @singleton    
 class JoinChecker:
