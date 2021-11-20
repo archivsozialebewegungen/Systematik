@@ -3,7 +3,7 @@ Created on 27.07.2021
 
 @author: michael
 '''
-from asb.systematik.SystematikDao import SystematikTree, SystematikDao, roemisch,\
+from asb_systematik.SystematikDao import SystematikTree, SystematikDao, roemisch,\
     SystematikDbModule
 import datetime
 import locale

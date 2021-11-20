@@ -5,12 +5,11 @@ from PyQt5.QtWidgets import QWidget, QApplication, QGroupBox, \
     QDialog, QDialogButtonBox, QMessageBox, QTreeWidgetItem, QRadioButton,\
     QPlainTextEdit
 from injector import Injector, inject
-from asb.systematik.SystematikDao import SystematikDbModule, SystematikNode
-from asb.systematik.SystematikTreeWidgetService import SystematikTreeWidgetService,\
-    NoSelectionException, SystematikQTreeWidget, SystematikQTreeWidgetItem
+from asb_systematik.SystematikDao import SystematikDbModule, SystematikNode
+from asb_systematik.SystematikTreeWidgetService import SystematikTreeWidgetService,\
+    NoSelectionException, SystematikQTreeWidgetItem
 from PyQt5 import sip
 from PyQt5.QtCore import QSize
-from traceback import print_exc
 
 class NewSubpointSelectionDialog(QDialog):
     
@@ -215,28 +214,28 @@ class Window(QWidget):
         try:
             item_widget = self.tree_widget.first_selected()
             
-            old_description = item_widget.systematik_node.beschreibung
-            old_comment = item_widget.systematik_node.kommentar
-            old_entfernt = item_widget.systematik_node.entfernt
-            old_startjahr = item_widget.systematik_node.startjahr
-            old_endjahr = item_widget.systematik_node.endjahr
+            old_description = item_widget.beschreibung
+            old_comment = item_widget.kommentar
+            old_entfernt = item_widget.entfernt
+            old_startjahr = item_widget.startjahr
+            old_endjahr = item_widget.endjahr
             
             dlg = DescriptionEditDialog(item_widget)
             if dlg.exec():
                 # Save if there are changes
-                if item_widget.systematik_node.beschreibung != old_description or \
-                   item_widget.systematik_node.kommentar != old_comment or \
-                   item_widget.systematik_node.entfernt != old_entfernt or \
-                   item_widget.systematik_node.startjahr != old_startjahr or \
-                   item_widget.systematik_node.endjahr != old_endjahr:
+                if item_widget.beschreibung != old_description or \
+                   item_widget.kommentar != old_comment or \
+                   item_widget.entfernt != old_entfernt or \
+                   item_widget.startjahr != old_startjahr or \
+                   item_widget.endjahr != old_endjahr:
                     self.tree_widget_service.save(item_widget)
             else:
                 # Reset after cancel
-                item_widget.alter_description(old_description)
-                item_widget.alter_kommentar(old_comment)
-                item_widget.alter_entfernt(old_entfernt)
-                item_widget.alter_startjahr(old_startjahr)
-                item_widget.alter_endjahr(old_endjahr)
+                item_widget.beschreibung = old_description
+                item_widget.kommentar = old_comment
+                item_widget.entfernt = old_entfernt
+                item_widget.startjahr = old_startjahr
+                item_widget.endjahr = old_endjahr
                 
         except NoSelectionException as e:
             msg = QMessageBox(self)

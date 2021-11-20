@@ -6,12 +6,11 @@ Created on 30.06.2021
 import re
 from injector import singleton, inject, Module, provider, Injector
 from sqlalchemy.engine.base import Connection
-from sqlalchemy.sql.schema import Table, MetaData, Column
+from sqlalchemy.sql.schema import Table, MetaData, Column, UniqueConstraint
 from sqlalchemy.sql.sqltypes import String, Integer
 from sqlalchemy.sql.expression import select, insert, update, and_, text, delete
 from sqlalchemy.engine.create import create_engine
 import os
-from pickle import NONE
 
 roemisch = ('', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII',
             'XVIII', 'XIX', 'XX', 'XXI', 'XXII', 'XXIII', 'XXIV', 'XXV', 'XXVI', 'XXVII', 'XXVIII', 'XXIX', 'XXX')
@@ -21,6 +20,7 @@ SYSTEMATIK_METADATA = MetaData()
 SYSTEMATIK_TABLE = Table(
     'systematik',
     SYSTEMATIK_METADATA,
+    Column('id', Integer, primary_key=True, nullable=False),
     Column('punkt', String, nullable=False),
     Column('roemisch', Integer),
     Column('sub', Integer),
@@ -28,7 +28,17 @@ SYSTEMATIK_TABLE = Table(
     Column('kommentar', String, nullable=True),
     Column('entfernt', String, nullable=True),
     Column('startjahr', Integer, nullable=True),
-    Column('endjahr', Integer, nullable=True)
+    Column('endjahr', Integer, nullable=True),
+    Column('nodetype', Integer, nullable=True),
+    Column('digistate', Integer, nullable=True)
+)
+
+BROSCH2SYS_Table = Table(
+    'broschtosys',
+    SYSTEMATIK_METADATA,
+    Column('sys_id', Integer),
+    Column('brosch_id', Integer),
+    UniqueConstraint('sys_id', 'brosch_id')
 )
 
 class DeletionForbiddenException(Exception):
@@ -519,7 +529,6 @@ class SystematikDao:
             return row['hauptnr']
         
         return None
-
 
 @singleton    
 class JoinChecker:

@@ -3,7 +3,7 @@ Created on 15.07.2021
 
 @author: michael
 '''
-from asb.systematik.SystematikDao import SystematikDao, SystematikTree,\
+from asb_systematik.SystematikDao import SystematikDao, SystematikTree,\
     SystematikNode
 from PyQt5.QtWidgets import QTreeWidget, QTreeWidgetItem
 from injector import singleton, inject
