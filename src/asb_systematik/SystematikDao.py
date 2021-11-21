@@ -5,7 +5,7 @@ Created on 30.06.2021
 '''
 import re
 from injector import singleton, inject, Module, provider, Injector
-from sqlalchemy.engine.base import Connection
+from sqlalchemy.engine.base import Connection, Engine
 from sqlalchemy.sql.schema import Table, MetaData, Column, UniqueConstraint
 from sqlalchemy.sql.sqltypes import String, Integer
 from sqlalchemy.sql.expression import select, insert, update, and_, text, delete
@@ -15,11 +15,11 @@ import os
 roemisch = ('', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII',
             'XVIII', 'XIX', 'XX', 'XXI', 'XXII', 'XXIII', 'XXIV', 'XXV', 'XXVI', 'XXVII', 'XXVIII', 'XXIX', 'XXX')
 
-SYSTEMATIK_METADATA = MetaData()
+ALEXANDRIA_METADATA = MetaData()
 
 SYSTEMATIK_TABLE = Table(
     'systematik',
-    SYSTEMATIK_METADATA,
+    ALEXANDRIA_METADATA,
     Column('id', Integer, primary_key=True, nullable=False),
     Column('punkt', String, nullable=False),
     Column('roemisch', Integer),
@@ -33,13 +33,14 @@ SYSTEMATIK_TABLE = Table(
     Column('digistate', Integer, nullable=True)
 )
 
-BROSCH2SYS_Table = Table(
-    'broschtosys',
-    SYSTEMATIK_METADATA,
-    Column('sys_id', Integer),
-    Column('brosch_id', Integer),
-    UniqueConstraint('sys_id', 'brosch_id')
-)
+class NoDataException(Exception):
+    pass
+
+
+class DataError(Exception):
+    
+    def __init__(self, message):
+        self.message = message
 
 class DeletionForbiddenException(Exception):
 
@@ -371,29 +372,56 @@ class SystematikDao:
     def __init__(self, connection: Connection):
 
         self.connection = connection
+    
+    def fetch_by_identifier_object(self, identifier: SystematikIdentifier):
         
+        stmt = select([SYSTEMATIK_TABLE]).where(
+            and_(SYSTEMATIK_TABLE.c.punkt == identifier.punkt,
+                 SYSTEMATIK_TABLE.c.roemisch == identifier.db_roemisch,
+                 SYSTEMATIK_TABLE.c.sub == identifier.db_sub))
+        record = self.connection.execute(stmt).fetchone()
+        
+        try:
+            syst = self._map_to_node(record)
+        except TypeError:
+            raise NoDataException
+        return syst
+    
+    def fetch_by_id(self, id: Integer) -> SystematikNode:
+        
+        stmt = select([SYSTEMATIK_TABLE]).where(SYSTEMATIK_TABLE.c.id == id)
+        record = self.connection.execute(stmt).fetchone()
+        
+        try:
+            syst = self._map_to_node(record)
+        except TypeError:
+            raise NoDataException
+        return syst
+
     def fetch_tree(self, tree_implementation):
         
         result = self.connection.execute(select([SYSTEMATIK_TABLE]))
         nodes = {}
         for row in result.fetchall():
-            roemisch = row[SYSTEMATIK_TABLE.c.roemisch]
-            if roemisch == 0:
-                roemisch = None
-            sub = row[SYSTEMATIK_TABLE.c.sub]
-            if sub == 0:
-                sub = None
-            identifier = SystematikIdentifier(row[SYSTEMATIK_TABLE.c.punkt], roemisch, sub)
-            nodes[identifier] = SystematikNode(identifier=identifier, beschreibung=row[SYSTEMATIK_TABLE.c.beschreibung], 
-                                               kommentar=row[SYSTEMATIK_TABLE.c.kommentar],
-                                               entfernt=row[SYSTEMATIK_TABLE.c.entfernt],
-                                               startjahr=row[SYSTEMATIK_TABLE.c.startjahr],
-                                               endjahr=row[SYSTEMATIK_TABLE.c.endjahr],
-                                               nodetype=row[SYSTEMATIK_TABLE.c.nodetype],
-                                               digistate=row[SYSTEMATIK_TABLE.c.digistate],
-                                               id=row[SYSTEMATIK_TABLE.c.id]
-                                               )
+            node = self._map_to_node(row)
+            nodes[node.identifier] = node
         return tree_implementation(nodes)
+
+    def _map_to_node(self, record):
+
+        identifier = SystematikIdentifier(record[SYSTEMATIK_TABLE.c.punkt],
+                                          record[SYSTEMATIK_TABLE.c.roemisch],
+                                          record[SYSTEMATIK_TABLE.c.sub])
+        return SystematikNode(identifier=identifier,
+                            beschreibung=record[SYSTEMATIK_TABLE.c.beschreibung], 
+                            kommentar=record[SYSTEMATIK_TABLE.c.kommentar],
+                            entfernt=record[SYSTEMATIK_TABLE.c.entfernt],
+                            startjahr=record[SYSTEMATIK_TABLE.c.startjahr],
+                            endjahr=record[SYSTEMATIK_TABLE.c.endjahr],
+                            nodetype=record[SYSTEMATIK_TABLE.c.nodetype],
+                            digistate=record[SYSTEMATIK_TABLE.c.digistate],
+                            id=record[SYSTEMATIK_TABLE.c.id]
+                            )
     
     def insert_node(self, node):
         
@@ -561,17 +589,22 @@ class JoinChecker:
                 except Exception:
                     print("Fehler in tabelle %s bei id %s: %s" % (column['table'], row['id'], row['systematik']))
         
-class SystematikDbModule(Module):
+class AlexandriaDbModule(Module):
 
     @singleton
     @provider
-    def provide_connection(self) -> Connection:
-        engine = create_engine(os.environ['DB_URL'])
+    def provide_engine(self) -> Engine:
+        return create_engine(os.environ['DB_URL'])
+
+    @singleton
+    @provider
+    @inject
+    def provide_connection(self, engine: Engine) -> Connection:
         return engine.connect()
 
 if __name__ == '__main__':
 
-    injector = Injector([SystematikDbModule])
+    injector = Injector([AlexandriaDbModule])
 
     join_checker = injector.get(JoinChecker)
     join_checker.run_check()
