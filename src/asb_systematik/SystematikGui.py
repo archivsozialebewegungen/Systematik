@@ -2,14 +2,14 @@ import sys
 
 from PyQt5.QtWidgets import QWidget, QApplication, QGroupBox, \
     QHBoxLayout, QVBoxLayout, QPushButton, QLabel, QLineEdit,\
-    QDialog, QDialogButtonBox, QMessageBox, QTreeWidgetItem, QRadioButton,\
+    QDialog, QDialogButtonBox, QMessageBox, QRadioButton,\
     QPlainTextEdit
 from injector import Injector, inject
-from asb_systematik.SystematikDao import SystematikDbModule, SystematikNode
 from asb_systematik.SystematikTreeWidgetService import SystematikTreeWidgetService,\
     NoSelectionException, SystematikQTreeWidgetItem
 from PyQt5 import sip
 from PyQt5.QtCore import QSize
+from asb_systematik.SystematikDao import AlexandriaDbModule
 
 class NewSubpointSelectionDialog(QDialog):
     
@@ -368,7 +368,7 @@ class Window(QWidget):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    injector = Injector([SystematikDbModule])
+    injector = Injector([AlexandriaDbModule])
     window = injector.get(Window)
     window.show()
     sys.exit(app.exec_())
