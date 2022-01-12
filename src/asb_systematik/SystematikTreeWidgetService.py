@@ -28,8 +28,9 @@ class SystematikQTreeWidgetItem(QTreeWidgetItem):
         try:
             self.systematik_node.parent = parent.systematik_node
         except:
-            print("Parent without node: %s" % parent)
+            # Happens on root nodes - parent then is no SystematikQTreeWidgetItem
             pass
+
         super().__init__(parent, ("%s" % systematik_node.identifier, self.display_text))
     
     def set_description(self, new_description):

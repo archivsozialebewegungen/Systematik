@@ -158,7 +158,8 @@ class SystematikIdentifier:
         return [SystematikIdentifier("%s.0" % self.punkt),
                 SystematikIdentifier("%s.1" % self.punkt),
                 SystematikIdentifier(self.punkt, roemisch=1),
-                SystematikIdentifier(self.punkt, sub=1)]
+                SystematikIdentifier(self.punkt, sub=1),
+                ]
     
     def _db_roemisch(self):
         
