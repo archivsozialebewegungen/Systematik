@@ -34,17 +34,12 @@ class NewSubpointSelectionDialog(QDialog):
         for identifier in identifiers:
             button = QRadioButton("%s" % identifier)
             self.buttons.append(button)
-            button.toggled.connect(lambda:self.toggle_button_state(button))
             layout.addWidget(button)
         
         layout.addWidget(buttonBox)
         
         self.setLayout(layout)
         
-    def toggle_button_state(self, clicked_button):
-        for button in self.buttons:
-            button.setChecked(button == clicked_button)
-                
     def get_selected(self):
         
         for index in range(0,len(self.buttons)):
