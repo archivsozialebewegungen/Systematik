@@ -111,6 +111,8 @@ class SystematikQTreeWidgetItem(QTreeWidgetItem):
                 desc = "%s (bis %d)" % (desc, self.systematik_node.endjahr)
             elif self.systematik_node.endjahr is None:
                 desc = "%s (ab %d)" % (desc, self.systematik_node.startjahr)
+            elif self.systematik_node.endjahr == self.systematik_node.startjahr:
+                desc = "%s (%d)" % (desc, self.systematik_node.startjahr)
             else:
                 desc = "%s (%d - %d)" % (desc, self.systematik_node.startjahr, self.systematik_node.endjahr)
                 
