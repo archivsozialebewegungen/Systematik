@@ -25,6 +25,11 @@ class SystematikQTreeWidgetItem(QTreeWidgetItem):
     def __init__(self, parent, systematik_node: SystematikNode):
         
         self.systematik_node = systematik_node
+        try:
+            self.systematik_node.parent = parent.systematik_node
+        except:
+            print("Parent without node: %s" % parent)
+            pass
         super().__init__(parent, ("%s" % systematik_node.identifier, self.display_text))
     
     def set_description(self, new_description):
@@ -236,6 +241,13 @@ class SystematikTreeWidgetService:
             self.dao.update_node(item_widget.systematik_node)
         else:
             self.dao.insert_node(item_widget.systematik_node)
+            new_node = item_widget.systematik_node
+            parent = new_node.parent
+            if len(parent.children) != 0:
+                previous_sibling = parent.children[-1]
+                new_node.previous_sibling = previous_sibling
+                previous_sibling.next_sibling = new_node
+            item_widget.systematik_node.parent.children.append(item_widget.systematik_node)
         self._tree = None
         
     def delete(self, item_widget: SystematikQTreeWidget):
