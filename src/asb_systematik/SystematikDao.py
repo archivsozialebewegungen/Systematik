@@ -298,6 +298,14 @@ class SystematikNode:
         points[-1] = "%s" % (int(points[-1]) + 1)
         punkt = '.'.join(points)
         return [SystematikNode(SystematikIdentifier(punkt), "Keine Beschreibung")]
+    
+    def get_main_point_identifier(self):
+
+        points = self.identifier.punkt.split('.')
+        if len(points) == None:
+            return SystematikIdentifier(None)
+        else:
+            return SystematikIdentifier(points[0])
         
 class SystematikTreeIterator:
     
@@ -561,6 +569,11 @@ class SystematikDao:
             return row['hauptnr']
         
         return None
+    
+    def fetch_root_node(self, node: SystematikNode):
+        
+        root_node_identifier = node.get_main_point_identifier()
+        return self.fetch_by_identifier_object(root_node_identifier)
 
 @singleton    
 class JoinChecker:
