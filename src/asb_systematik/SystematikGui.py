@@ -225,6 +225,7 @@ class Window(QWidget):
             old_entfernt = item_widget.entfernt
             old_startjahr = item_widget.startjahr
             old_endjahr = item_widget.endjahr
+            old_nodetype = item_widget.nodetype
             
             dlg = DescriptionEditDialog(item_widget)
             if dlg.exec():
@@ -233,6 +234,7 @@ class Window(QWidget):
                    item_widget.kommentar != old_comment or \
                    item_widget.entfernt != old_entfernt or \
                    item_widget.startjahr != old_startjahr or \
+                   item_widget.nodetype != old_nodetype or \
                    item_widget.endjahr != old_endjahr:
                     self.tree_widget_service.save(item_widget)
             else:
@@ -242,6 +244,7 @@ class Window(QWidget):
                 item_widget.entfernt = old_entfernt
                 item_widget.startjahr = old_startjahr
                 item_widget.endjahr = old_endjahr
+                item_widget.nodetype = old_nodetype
                 
         except NoSelectionException as e:
             msg = QMessageBox(self)

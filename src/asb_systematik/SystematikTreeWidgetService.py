@@ -96,6 +96,14 @@ class SystematikQTreeWidgetItem(QTreeWidgetItem):
         
         return self.systematik_node.endjahr
 
+    def set_nodetype(self, nodetype):
+        
+        self.systematik_node.nodetype = nodetype
+        
+    def get_nodetype(self):
+        
+        return self.systematik_node.nodetype
+
     def _get_display_text(self):
 
         if self.systematik_node.beschreibung is None:
@@ -124,6 +132,7 @@ class SystematikQTreeWidgetItem(QTreeWidgetItem):
     startjahr = property(get_startjahr, set_startjahr)        
     endjahr = property(get_endjahr, set_endjahr)        
     display_text = property(_get_display_text)
+    nodetype = property(get_nodetype, set_nodetype)
 
 class SystematikQTreeWidget(QTreeWidget):
     

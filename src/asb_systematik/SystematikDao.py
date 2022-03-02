@@ -478,6 +478,7 @@ class SystematikDao:
                    kommentar=node.kommentar,
                    entfernt=node.entfernt,
                    startjahr=node.startjahr,
+                   nodetype=node.nodetype,
                    endjahr=node.endjahr).\
             where(and_(SYSTEMATIK_TABLE.c.punkt == node.identifier.punkt,
                        SYSTEMATIK_TABLE.c.roemisch == roemisch,
