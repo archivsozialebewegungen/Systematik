@@ -3,13 +3,14 @@ import sys
 from PyQt5.QtWidgets import QWidget, QApplication, QGroupBox, \
     QHBoxLayout, QVBoxLayout, QPushButton, QLabel, QLineEdit,\
     QDialog, QDialogButtonBox, QMessageBox, QRadioButton,\
-    QPlainTextEdit
+    QPlainTextEdit, QCheckBox
 from injector import Injector, inject
 from asb_systematik.SystematikTreeWidgetService import SystematikTreeWidgetService,\
     NoSelectionException, SystematikQTreeWidgetItem
-from PyQt5 import sip
+from PyQt5 import sip, QtCore
 from PyQt5.QtCore import QSize
-from asb_systematik.SystematikDao import AlexandriaDbModule
+from asb_systematik.SystematikDao import AlexandriaDbModule, NODE_TYPE_VIRTUAL,\
+    NODE_TYPE_NORMAL
 
 class NewSubpointSelectionDialog(QDialog):
     
@@ -74,7 +75,12 @@ class DescriptionEditDialog(QDialog):
         beschreibung_entry.setText(item.systematik_node.beschreibung)
         beschreibung_entry.textChanged.connect(self.update_beschreibung)
         self.layout.addWidget(beschreibung_entry)
-        
+
+        self.virtual_checkbox = QCheckBox("Virtueller Systematikpunkt ohne Bestand")
+        self.virtual_checkbox.setChecked(self.item.systematik_node.nodetype == NODE_TYPE_VIRTUAL)
+        self.layout.addWidget(self.virtual_checkbox)
+        self.virtual_checkbox.stateChanged.connect(self.virtual_state_changed)
+
         label = QLabel("Kommentar:")
         self.layout.addWidget(label)
         self.kommentar_entry = QPlainTextEdit(item.systematik_node.kommentar)
@@ -99,10 +105,15 @@ class DescriptionEditDialog(QDialog):
         self.endjahr_entry.textChanged.connect(self.update_endjahr)
         self.layout.addWidget(self.endjahr_entry)
 
-        self.layout.addWidget(label)
-        self.layout.addWidget(beschreibung_entry)
         self.layout.addWidget(self.buttonBox)
         self.setLayout(self.layout)
+        
+    def virtual_state_changed(self, state):
+
+        if state == QtCore.Qt.Checked:
+            self.item.systematik_node.nodetype = NODE_TYPE_VIRTUAL
+        else:
+            self.item.systematik_node.nodetype = NODE_TYPE_NORMAL
         
     def _format_jahr(self, jahr):
         

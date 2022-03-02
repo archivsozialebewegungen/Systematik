@@ -15,6 +15,9 @@ import os
 roemisch = ('', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII',
             'XVIII', 'XIX', 'XX', 'XXI', 'XXII', 'XXIII', 'XXIV', 'XXV', 'XXVI', 'XXVII', 'XXVIII', 'XXIX', 'XXX')
 
+NODE_TYPE_NORMAL = 0
+NODE_TYPE_VIRTUAL = 1
+
 ALEXANDRIA_METADATA = MetaData()
 
 SYSTEMATIK_TABLE = Table(
