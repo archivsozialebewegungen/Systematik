@@ -11,9 +11,7 @@ from sqlalchemy.sql.sqltypes import String, Integer
 from sqlalchemy.sql.expression import select, insert, update, and_, text, delete
 from sqlalchemy.engine.create import create_engine
 import os
-
-roemisch = ('', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII',
-            'XVIII', 'XIX', 'XX', 'XXI', 'XXII', 'XXIII', 'XXIV', 'XXV', 'XXVI', 'XXVII', 'XXVIII', 'XXIX', 'XXX')
+import roman
 
 NODE_TYPE_NORMAL = 0
 NODE_TYPE_VIRTUAL = 1
@@ -96,16 +94,18 @@ class SystematikIdentifier:
             self.sub = int(subsplit[1])
         else:
             self.sub = None
-        if subsplit[0] in roemisch:
-            for i in range(0,len(roemisch)):
-                if roemisch[i] == subsplit[0]:
-                    self.roemisch = i
+        if self.is_roman(subsplit[0]):
+            self.roemisch = roman.fromRoman(subsplit[0])
         else:
             self.punkt = "%s.%s" % (self.punkt, subsplit[0])        
         
     def is_root(self):
         
         return self.punkt is None
+    
+    def is_roman(self, roman_string):
+        
+        return roman_string[0] in ("I", "V", "X", "L", "C")
         
     def _get_parent_identifier(self):
         
@@ -182,9 +182,9 @@ class SystematikIdentifier:
             if self.roemisch is None:
                 return "%s-%d" % (self.punkt, self.sub)
             else:
-                return "%s.%s-%d" % (self.punkt, roemisch[self.roemisch], self.sub)
+                return "%s.%s-%d" % (self.punkt, roman.toRoman(self.roemisch), self.sub)
         if self.roemisch is not None:
-            return "%s.%s" % (self.punkt, roemisch[self.roemisch])
+            return "%s.%s" % (self.punkt, roman.toRoman(self.roemisch))
         if self.punkt is None:
             return "Rootnode"
         return self.punkt

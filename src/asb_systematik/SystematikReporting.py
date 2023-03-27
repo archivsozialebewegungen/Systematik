@@ -3,10 +3,11 @@ Created on 27.07.2021
 
 @author: michael
 '''
-from asb_systematik.SystematikDao import SystematikTree, SystematikDao, roemisch,\
-    SystematikDbModule
+from asb_systematik.SystematikDao import SystematikTree, SystematikDao,\
+    AlexandriaDbModule
 import datetime
 import locale
+import roman
 from injector import Injector
 
 locale.setlocale(locale.LC_ALL, 'de_DE.UTF-8')
@@ -34,7 +35,8 @@ class SystematikTexTree(SystematikTree):
 \\usepackage[T1]{fontenc}
 \\usepackage[utf8]{inputenc}
 \\usepackage{geometry}
-\\geometry{verbose,tmargin=2cm,bmargin=2cm,lmargin=2cm,rmargin=2cm}\\usepackage{scrpage2}
+\\geometry{verbose,tmargin=2cm,bmargin=2cm,lmargin=2cm,rmargin=2cm}
+\\usepackage{scrlayer-scrpage}
 \\pagestyle{scrheadings}
 \\clearscrheadfoot
 \\setlength{\\parindent}{0bp}
@@ -78,7 +80,7 @@ class SystematikTexTree(SystematikTree):
             if not self.descriptionlist_open:
                 string += "\n\\begin{description}\n"
                 self.descriptionlist_open = True
-            string += "\\item[{%s}:] %s\n\n" % (roemisch[node.identifier.roemisch], tex_sanitizing(node.beschreibung))
+            string += "\\item[{%s}:] %s\n\n" % (roman.toRoman(node.identifier.roemisch), tex_sanitizing(node.beschreibung))
         
         else:
             depth = node.get_depth()
@@ -111,7 +113,7 @@ class SystematikTexTree(SystematikTree):
 
 if __name__ == '__main__':
  
-    injector = Injector([SystematikDbModule])
+    injector = Injector([AlexandriaDbModule])
     dao = injector.get(SystematikDao)
     tree = dao.fetch_tree(SystematikTexTree)
     tex_file = open("/tmp/systematik.tex", "w")
