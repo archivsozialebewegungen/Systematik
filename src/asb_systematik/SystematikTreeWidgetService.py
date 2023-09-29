@@ -5,8 +5,8 @@ Created on 15.07.2021
 '''
 from asb_systematik.SystematikDao import SystematikDao, SystematikTree,\
     SystematikNode
-from PyQt5.QtWidgets import QTreeWidget, QTreeWidgetItem
 from injector import singleton, inject
+from PySide6.QtWidgets import QTreeWidgetItem, QTreeWidget
 
 class NoSelectionException(Exception):
     

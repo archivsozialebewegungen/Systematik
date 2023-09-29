@@ -1,0 +1,10 @@
+greenlet==2.0.2
+injector==0.21.0
+psycopg2==2.9.8
+PySide6==6.5.2
+PySide6-Addons==6.5.2
+PySide6-Essentials==6.5.2
+roman==4.1
+shiboken6==6.5.2
+SQLAlchemy==1.4.49
+typing_extensions==4.8.0

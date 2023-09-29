@@ -1,16 +1,15 @@
 import sys
 
-from PyQt5.QtWidgets import QWidget, QApplication, QGroupBox, \
-    QHBoxLayout, QVBoxLayout, QPushButton, QLabel, QLineEdit,\
-    QDialog, QDialogButtonBox, QMessageBox, QRadioButton,\
-    QPlainTextEdit, QCheckBox
 from injector import Injector, inject
 from asb_systematik.SystematikTreeWidgetService import SystematikTreeWidgetService,\
     NoSelectionException, SystematikQTreeWidgetItem
-from PyQt5 import sip, QtCore
-from PyQt5.QtCore import QSize
 from asb_systematik.SystematikDao import AlexandriaDbModule, NODE_TYPE_VIRTUAL,\
     NODE_TYPE_NORMAL
+from PySide6.QtWidgets import QDialog, QDialogButtonBox, QVBoxLayout, QLabel,\
+    QRadioButton, QLineEdit, QCheckBox, QPlainTextEdit, QWidget, QHBoxLayout,\
+    QGroupBox, QPushButton, QMessageBox, QApplication
+from PySide6.QtCore import QSize, Qt
+from shiboken6 import Shiboken
 
 class NewSubpointSelectionDialog(QDialog):
     
@@ -110,7 +109,7 @@ class DescriptionEditDialog(QDialog):
         
     def virtual_state_changed(self, state):
 
-        if state == QtCore.Qt.Checked:
+        if state == Qt.Checked:
             self.item.systematik_node.nodetype = NODE_TYPE_VIRTUAL
         else:
             self.item.systematik_node.nodetype = NODE_TYPE_NORMAL
@@ -287,7 +286,7 @@ class Window(QWidget):
             if dlg.exec():
                 self.tree_widget_service.save(child_widget)
             else:
-                sip.delete(child_widget)
+                Shiboken.delete(child_widget)
             
         except NoSelectionException as e:
             msg = QMessageBox(self)
@@ -346,7 +345,7 @@ class Window(QWidget):
 
             if button == QMessageBox.Yes:
                 self.tree_widget_service.delete(selected_widget)
-                sip.delete(selected_widget)
+                Shiboken.delete(selected_widget)
             else:
                 pass
 
@@ -380,4 +379,4 @@ if __name__ == '__main__':
     injector = Injector([AlexandriaDbModule])
     window = injector.get(Window)
     window.show()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
