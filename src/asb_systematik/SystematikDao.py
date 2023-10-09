@@ -95,7 +95,8 @@ class SystematikIdentifier:
         else:
             self.sub = None
         if self.is_roman(subsplit[0]):
-            self.roemisch = roman.fromRoman(subsplit[0])
+            roemisch = subsplit[0].replace("XXXX", "XL")
+            self.roemisch = roman.fromRoman(roemisch)
         else:
             self.punkt = "%s.%s" % (self.punkt, subsplit[0])        
         
@@ -239,10 +240,24 @@ class SystematikNode:
             return self.children[0]
         if self.next_sibling is not None:
             return self.next_sibling
+
+    def _get_full_description(self):
+        
+        text = self.beschreibung
+        if self.startjahr is not None:
+            if self.endjahr is not None:
+                if self.endjahr != self.startjahr:
+                    text += " (%d - %d)" % (self.startjahr, self.endjahr)
+                else:
+                    text += " (%d)" % self.startjahr
+            else:
+                text += " (%d - )" % self.startjahr
+        return text 
+
         
     def __str__(self):
         
-        return "%s: %s" % (self.identifier, self.beschreibung)
+        return "%s: %s" % (self.identifier, self.full_description)
     
     def is_sub(self):
         
@@ -306,7 +321,9 @@ class SystematikNode:
             return SystematikIdentifier(None)
         else:
             return SystematikIdentifier(points[0])
-        
+    
+    full_description = property(_get_full_description)
+    
 class SystematikTreeIterator:
     
     def __init__(self, root_node):

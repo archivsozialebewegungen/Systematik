@@ -74,13 +74,13 @@ class SystematikTexTree(SystematikTree):
             if not self.itemlist_open:
                 string += "\n\\begin{itemize}\n"
                 self.itemlist_open = True
-            string += "\\item %s\n\n" % tex_sanitizing(node.beschreibung)
+            string += "\\item %s\n\n" % tex_sanitizing(node.full_description)
         
         elif node.is_roman():
             if not self.descriptionlist_open:
                 string += "\n\\begin{description}\n"
                 self.descriptionlist_open = True
-            string += "\\item[{%s}:] %s\n\n" % (roman.toRoman(node.identifier.roemisch), tex_sanitizing(node.beschreibung))
+            string += "\\item[{%s}:] %s\n\n" % (roman.toRoman(node.identifier.roemisch), tex_sanitizing(node.full_description))
         
         else:
             depth = node.get_depth()
@@ -90,17 +90,22 @@ class SystematikTexTree(SystematikTree):
 \\maketitle
 """ % (tex_sanitizing(node.beschreibung), datetime.date.today().strftime("%d. %B %Y"))
             elif depth == 1:
-                string += "\pagebreak{}\part*{%s: %s}\n\setcounter{page}{1}\n\ihead{%s: %s}\n" % (node.identifier, tex_sanitizing(node.beschreibung), node.identifier, tex_sanitizing(node.beschreibung))
+                string += "\pagebreak{}\part*{%s: %s}\n\setcounter{page}{1}\n\ihead{%s: %s}\n" % (node.identifier, tex_sanitizing(node.full_description), node.identifier, tex_sanitizing(node.full_description))
             elif depth == 2:
-                string += "\section*{%s: %s}\n" % (node.identifier, tex_sanitizing(node.beschreibung))
+                string += "\section*{%s}\n" % tex_sanitizing("%s" % node)
             elif depth == 3:
-                string += "\subsection*{%s: %s}\n" % (node.identifier, tex_sanitizing(node.beschreibung))
+                string += "\subsection*{%s}\n" % tex_sanitizing("%s" % node)
             elif depth == 4:
-                string += "\subsubsection*{%s: %s}\n" % (node.identifier, tex_sanitizing(node.beschreibung))
+                string += "\subsubsection*{%s}\n" % tex_sanitizing("%s" % node)
             elif depth == 5:
-                string += "\paragraph*{%s: %s}\n" % (node.identifier, tex_sanitizing(node.beschreibung))
+                string += "\paragraph*{%s}\n" % tex_sanitizing("%s" % node)
             else:
-                string += "\subparagraph*{%s: %s}\n" % (node.identifier, tex_sanitizing(node.beschreibung))
+                string += "\subparagraph*{%s}\n" % tex_sanitizing("%s" % node)
+            
+        if node.kommentar != None and node.kommentar.strip() != "":
+            if node.get_depth() > 4:
+                string += "\n~\n"
+            string += "\n%sn\n" % tex_sanitizing(node.kommentar.strip().replace('\n', "\n\n"))
             
         for child in node.children:
             string += self._get_string(child)
