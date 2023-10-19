@@ -1,10 +1,11 @@
 from injector import Injector, inject, singleton
 from asb_systematik.SystematikDao import AlexandriaDbModule, SystematikDao,\
     SystematikTree
-from xml.dom.minidom import getDOMImplementation
 from datetime import date
 import os
 import xmlschema
+from xml.dom.minidom import getDOMImplementation
+from _operator import add
 
 @singleton
 class SystematikExporter(object):
@@ -12,7 +13,8 @@ class SystematikExporter(object):
     @inject
     def __init__(self, systematik_dao: SystematikDao):
         
-        self.schema = os.path.join(os.path.dirname(__file__), "..", "data", "EAD_DDB_1.2_Tektonik_XSD1.0.xsd")
+        self.schema_file = os.path.join(os.path.dirname(__file__), "..", "data", "EAD_DDB_1.2_Tektonik_XSD1.1.xsd")
+        self.schema = xmlschema.XMLSchema11(self.schema_file)
         self.systematik_dao = systematik_dao
         
     def ead_export(self, filename="/tmp/systematik.xml", flat=True):
@@ -24,6 +26,7 @@ class SystematikExporter(object):
         dom = self._build_ead_tree_xml(dom, tree)
             
         file = open(filename, "w")
+        file.write("<?xml version='1.0' encoding='UTF-8'?>\n")
         file.write(dom.documentElement.toprettyxml(indent="  ", standalone=True))
         file.close()
         
@@ -43,7 +46,13 @@ class SystematikExporter(object):
         
         repository_element = dom.createElement("repository")
         did_element.appendChild(repository_element)
-        repository_element.setAttribute("label", "ASB")
+        repository_element.setAttribute("label", "Baden-Württemberg")
+        self._append_text_element(dom, repository_element, "corpname", "Archiv Soziale Bewegungen e.V.")
+        address_element = dom.createElement("address")
+        repository_element.appendChild(address_element)
+        self._append_text_element(dom, address_element, "addressline", "Adlerstr.12")
+        self._append_text_element(dom, address_element, "addressline", "D-79098 Freiburg")
+        self._append_text_element(dom, address_element, "addressline", "info@archivsozialebewegungen.de")
         
         dsc_element = dom.createElement("dsc")
         archdesc_element.appendChild(dsc_element)
@@ -54,6 +63,9 @@ class SystematikExporter(object):
         return dom
 
     def _add_ead_child(self, dom, parent_element, node):
+        
+        if node.identifier.punkt == "23":
+            return
         
         element = self._create_ead_node_element(dom, node)
         parent_element.appendChild(element)
@@ -75,10 +87,17 @@ class SystematikExporter(object):
         
         header_element = dom.createElement("eadheader")
         root.appendChild(header_element)
+        header_element.setAttribute("countryencoding", "iso3166-1")
+        header_element.setAttribute("dateencoding", "iso8601")
+        header_element.setAttribute("langencoding", "iso639-2b")
+        header_element.setAttribute("repositoryencoding", "iso15511"),
+        header_element.setAttribute("scriptencoding", "iso15924")
 
         id_element = dom.createElement("eadid")
         header_element.appendChild(id_element)
-        id_text = dom.createTextNode("BW-Frei202")
+        id_element.setAttribute("mainagencycode", "DE-Frei202")
+        id_element.setAttribute("url", "http://archivsozialebewegungen.de")
+        id_text = dom.createTextNode("ASB-Systematik")
         id_element.appendChild(id_text)
         
         filedesc_element = dom.createElement("filedesc")
@@ -97,8 +116,7 @@ class SystematikExporter(object):
         date_element = dom.createElement("date")
         creation_element.appendChild(date_element)
         today = date.today()
-        # Does not validate correctly
-        #date_element.setAttribute("normal", today.strftime("%Y.%m.%d"))
+        date_element.setAttribute("normal", today.strftime("%Y-%m-%d"))
         date_text = dom.createTextNode(today.strftime("%d.%m.%Y"))
         date_element.appendChild(date_text)
         
@@ -107,14 +125,14 @@ class SystematikExporter(object):
     def _create_ead_node_element(self, dom, node):
         
         element = dom.createElement("c")
-        element.setAttribute("id", "Tekt_f4ccea23-184e-4ced-ab29-%s" % node.id)
+        element.setAttribute("id", "ASB-%s" % node.id)
         
         if len(node.children) == 0:
             element.setAttribute("level", "file")
         elif node.parent is None:
             raise Exception("This should not happen")
         elif node.parent.id is None:
-            element.setAttribute("level", "class")
+            element.setAttribute("level", "collection")
         else:
             element.setAttribute("level", "class")
 
@@ -122,11 +140,11 @@ class SystematikExporter(object):
         element.appendChild(did_element)
         did_element = self._append_text_element(dom, did_element, "unitid", node.identifier)
         did_element = self._append_text_element(dom, did_element, "unittitle", node.beschreibung)
-        #if node.kommentar is not None:
-        #    did_element = self._append_text_element(dom, did_element, "note", node.kommentar)
-        #if node.entfernt is not None:
-        #    did_element = self._append_text_element(dom, element, "odd", node.entfernt)
-        #did_element = self._append_ead_laufzeit(dom, element, node)
+        if node.kommentar is not None:
+            did_element = self._append_text_element(dom, did_element, "note", node.kommentar)
+        if node.entfernt is not None:
+            did_element = self._append_text_element(dom, element, "odd", node.entfernt)
+        did_element = self._append_ead_laufzeit(dom, element, node)
         
         return element
 
@@ -151,29 +169,15 @@ class SystematikExporter(object):
 
         if node.endjahr is None:
             laufzeit_element.appendChild(dom.createTextNode("%s -" % node.startjahr))
+            laufzeit_element.setAttribute("normal", "%s/" % node.startjahr)
         elif node.endjahr == node.startjahr:
             laufzeit_element.appendChild(dom.createTextNode("%s" % node.startjahr))
+            laufzeit_element.setAttribute("normal", "%s" % node.startjahr)
         else:
             laufzeit_element.appendChild(dom.createTextNode("%s - %s" % (node.startjahr, node.endjahr)))
-        # TODO: normal attribute
+            laufzeit_element.setAttribute("normal", "%s/%s" % (node.startjahr, node.endjahr))
         
         return element
-
-    def _append_laufzeit(self, dom, element, node):
-        
-        if node.startjahr is None:
-            return element
-        laufzeit_element = dom.createElement("Laufzeit")
-        if node.endjahr is None:
-            laufzeit_element.appendChild(dom.createTextNode("%s -" % node.startjahr))
-        elif node.endjahr == node.startjahr:
-            laufzeit_element.appendChild(dom.createTextNode("%s" % node.startjahr))
-        else:
-            laufzeit_element.appendChild(dom.createTextNode("%s - %s" % (node.startjahr, node.endjahr)))
-        element.appendChild(laufzeit_element)
-        return element
-            
-        
 
 if __name__ == '__main__':
     injector = Injector([AlexandriaDbModule])
