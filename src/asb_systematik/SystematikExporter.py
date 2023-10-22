@@ -1,78 +1,125 @@
 from injector import Injector, inject, singleton
 from asb_systematik.SystematikDao import AlexandriaDbModule, SystematikDao,\
-    SystematikTree
+    SystematikTree, SystematikIdentifier
 from datetime import date
 import os
 import xmlschema
 from xml.dom.minidom import getDOMImplementation
-from _operator import add
+from enum import StrEnum
 
+class EAD_TYPE(StrEnum):
+    
+    TEKTONIK = "Tektonik"
+    FINDBUCH = "Findbuch"
+    
+    def as_id(self):
+        
+        return "ASB_" + self
+    
+    def bestands_type(self):
+        
+        if self == EAD_TYPE.TEKTONIK:
+            return "file"
+        else:
+            return "collection"
 @singleton
 class SystematikExporter(object):
     
     @inject
     def __init__(self, systematik_dao: SystematikDao):
         
-        self.schema_file = os.path.join(os.path.dirname(__file__), "..", "data", "EAD_DDB_1.2_Tektonik_XSD1.1.xsd")
-        self.schema = xmlschema.XMLSchema11(self.schema_file)
+        tektonik_schema_file = os.path.join(os.path.dirname(__file__), "..", "data", "EAD_DDB_1.2_Tektonik_XSD1.1.xsd")
+        self.tektonik_schema = xmlschema.XMLSchema11(tektonik_schema_file)
+        findbuch_schema_file = os.path.join(os.path.dirname(__file__), "..", "data", "EAD_DDB_1.2_Findbuch_XSD1.1.xsd")
+        self.findbuch_schema = xmlschema.XMLSchema11(findbuch_schema_file)
         self.systematik_dao = systematik_dao
+
+        self.systematik_tree = self.systematik_dao.fetch_tree(SystematikTree)
         
-    def ead_export(self, filename="/tmp/systematik.xml", flat=True):
+    def full_export(self, basedir=os.path.join("/", "tmp")):
         
-        dom = self._ead_dom()
+        self.ead_export(os.path.join(basedir, "asb_systematik_tektonik.xml"), EAD_TYPE.TEKTONIK)
+        for syst_punkt in range(0, 23):
+            if syst_punkt == 18:
+                continue
+            self.ead_export(os.path.join(basedir, "asb_systematik_findbuch_%02d.xml") % syst_punkt, EAD_TYPE.FINDBUCH, syst_punkt)
         
-        tree = self.systematik_dao.fetch_tree(SystematikTree)
+    def ead_export(self, filename: str = "/tmp/systematik.xml", ead_type:EAD_TYPE = EAD_TYPE.TEKTONIK, syst_punkt:int = 0):
         
-        dom = self._build_ead_tree_xml(dom, tree)
+        dom = self._init_ead_dom()
+        
+        dom = self._build_xml(dom, ead_type, syst_punkt)
             
         file = open(filename, "w")
         file.write("<?xml version='1.0' encoding='UTF-8'?>\n")
         file.write(dom.documentElement.toprettyxml(indent="  ", standalone=True))
         file.close()
-        
-        xmlschema.validate(filename, self.schema)
 
-    def _build_ead_tree_xml(self, dom, tree):
+        if ead_type == EAD_TYPE.TEKTONIK:
+            xmlschema.validate(filename, self.tektonik_schema)
+        else:
+            xmlschema.validate(filename, self.findbuch_schema)
+
+    def _build_xml(self, dom, ead_type: EAD_TYPE, syst_punkt: int):
         
-        root_node = tree.rootnode
-        
-        archdesc_element = dom.createElement("archdesc")
+        archdesc_element = self._add_element(dom, dom.documentElement, "archdesc")
         archdesc_element.setAttribute("level", "collection")
-        archdesc_element.setAttribute("type", "Tektonik")
-        dom.documentElement.appendChild(archdesc_element)
+        archdesc_element.setAttribute("type", "%s" % ead_type)
         
-        did_element = dom.createElement("did")
-        archdesc_element.appendChild(did_element)
+        did_element = self._add_element(dom, archdesc_element, "did")
         
-        repository_element = dom.createElement("repository")
-        did_element.appendChild(repository_element)
+        repository_element = self._add_element(dom, did_element, "repository")
         repository_element.setAttribute("label", "Baden-Württemberg")
-        self._append_text_element(dom, repository_element, "corpname", "Archiv Soziale Bewegungen e.V.")
-        address_element = dom.createElement("address")
-        repository_element.appendChild(address_element)
-        self._append_text_element(dom, address_element, "addressline", "Adlerstr.12")
-        self._append_text_element(dom, address_element, "addressline", "D-79098 Freiburg")
-        self._append_text_element(dom, address_element, "addressline", "info@archivsozialebewegungen.de")
+
+        self._add_element(dom, repository_element, "corpname", "Archiv Soziale Bewegungen e.V.")
+        address_element = self._add_element(dom, repository_element, "address")
+        self._add_element(dom, address_element, "addressline", "Adlerstr.12")
+        self._add_element(dom, address_element, "addressline", "D-79098 Freiburg")
+        self._add_element(dom, address_element, "addressline", "info@archivsozialebewegungen.de")
         
-        dsc_element = dom.createElement("dsc")
-        archdesc_element.appendChild(dsc_element)
+        dsc_element = self._add_element(dom, archdesc_element, "dsc")
         
-        for child_node in root_node.children:
-            self._add_ead_child(dom, dsc_element, child_node)
+        if ead_type == EAD_TYPE.TEKTONIK:
+            self._add_tektonik(dom, dsc_element)
+        else:
+            self._add_findbuch(dom, dsc_element, syst_punkt)
         
         return dom
 
-    def _add_ead_child(self, dom, parent_element, node):
+    def _add_tektonik(self, dom, dsc_element):
         
-        if node.identifier.punkt == "23":
-            return
         
-        element = self._create_ead_node_element(dom, node)
+        main_c_element = self._add_element(dom, dsc_element, "c")
+        main_c_element.setAttribute("level", "collection")
+        main_c_element.setAttribute("id", EAD_TYPE.TEKTONIK.as_id())
+        
+        main_did_element = self._add_element(dom, main_c_element, "did")
+        main_repository_element = self._add_element(dom, main_did_element, "repository")
+        main_corpname_element = self._add_element(dom, main_repository_element, "corpname", "Archiv Soziale Bewegungen e.V.")
+        main_corpname_element.setAttribute("role", "Archive der Hochschulen sowie wissenschaftlicher Institutionen")
+        main_corpname_element.setAttribute("id", "DE-Frei220")
+        self._add_element(dom, main_did_element, "unittitle", "Archiv Soziale Bewegungen e.V. (Archivtektonik)")
+
+        for child_node in self.systematik_tree.rootnode.children:
+            if child_node.identifier.punkt in ("18", "23"):
+                continue
+            element = self._create_ead_node_element(dom, child_node, EAD_TYPE.TEKTONIK)
+            main_c_element.appendChild(element)
+        
+    def _add_findbuch(self, dom, dsc_element, syst_punkt):
+
+        findbuch_root = self.systematik_tree.find_node(SystematikIdentifier("%s" % syst_punkt))
+        
+        self._add_ead_child(dom, dsc_element, findbuch_root, EAD_TYPE.FINDBUCH)
+
+    def _add_ead_child(self, dom, parent_element, node, ead_type):
+        
+        element = self._create_ead_node_element(dom, node, ead_type)
         parent_element.appendChild(element)
         for child_node in node.children:
-            self._add_ead_child(dom, element, child_node)
-        
-    def _ead_dom(self):
+            self._add_ead_child(dom, element, child_node, ead_type)
+            
+    def _init_ead_dom(self):
         
         impl = getDOMImplementation()
 
@@ -122,7 +169,7 @@ class SystematikExporter(object):
         
         return dom
     
-    def _create_ead_node_element(self, dom, node):
+    def _create_ead_node_element(self, dom, node, ead_type:EAD_TYPE):
         
         element = dom.createElement("c")
         element.setAttribute("id", "ASB-%s" % node.id)
@@ -132,33 +179,36 @@ class SystematikExporter(object):
         elif node.parent is None:
             raise Exception("This should not happen")
         elif node.parent.id is None:
-            element.setAttribute("level", "collection")
+            element.setAttribute("level", ead_type.bestands_type())
         else:
             element.setAttribute("level", "class")
-
-        did_element = dom.createElement("did")
-        element.appendChild(did_element)
-        did_element = self._append_text_element(dom, did_element, "unitid", node.identifier)
-        did_element = self._append_text_element(dom, did_element, "unittitle", node.beschreibung)
+ 
+        did_element = self._add_element(dom, element, "did")
+        self._add_element(dom, did_element, "unitid", node.identifier)
+        self._add_element(dom, did_element, "unittitle", node.beschreibung)
+        if node.startjahr is not None:
+            self._append_ead_laufzeit(dom, did_element, node)
         if node.kommentar is not None:
-            did_element = self._append_text_element(dom, did_element, "note", node.kommentar)
+            note_element = self._add_element(dom, did_element, "note")
+            self._add_element(dom, note_element, "p", node.kommentar)
+ 
         if node.entfernt is not None:
-            did_element = self._append_text_element(dom, element, "odd", node.entfernt)
-        did_element = self._append_ead_laufzeit(dom, element, node)
-        
+            odd_element = self._add_element(dom, element, "odd")
+            element.appendChild(odd_element)
+            self._add_element(dom, odd_element, "head", "Entfernte Materialien:")
+            self._add_element(dom, odd_element, "p", node.entfernt)
+       
         return element
 
-    def _append_text_element(self, dom, element, tag, value):
-        
-        if value is None:
-            return element
-        string_value = "%s" % value
-        if string_value.strip() == "":
-            return element
+    def _add_element(self, dom, element, tag, value=None):
+
         child_element = dom.createElement(tag)
-        child_element.appendChild(dom.createTextNode(string_value))
         element.appendChild(child_element)
-        return element
+        
+        if value is not None:
+            child_element.appendChild(dom.createTextNode("%s" % value))
+
+        return child_element
     
     def _append_ead_laufzeit(self, dom, element, node):
         
@@ -169,17 +219,17 @@ class SystematikExporter(object):
 
         if node.endjahr is None:
             laufzeit_element.appendChild(dom.createTextNode("%s -" % node.startjahr))
-            laufzeit_element.setAttribute("normal", "%s/" % node.startjahr)
+            laufzeit_element.setAttribute("normal", "%s-01-01/2999-12-31" % node.startjahr)
         elif node.endjahr == node.startjahr:
             laufzeit_element.appendChild(dom.createTextNode("%s" % node.startjahr))
-            laufzeit_element.setAttribute("normal", "%s" % node.startjahr)
+            laufzeit_element.setAttribute("normal", "%s-01-01/%s-12-31" % (node.startjahr, node.startjahr))
         else:
             laufzeit_element.appendChild(dom.createTextNode("%s - %s" % (node.startjahr, node.endjahr)))
-            laufzeit_element.setAttribute("normal", "%s/%s" % (node.startjahr, node.endjahr))
+            laufzeit_element.setAttribute("normal", "%s-01-01/%s-12-31" % (node.startjahr, node.endjahr))
         
         return element
 
 if __name__ == '__main__':
     injector = Injector([AlexandriaDbModule])
     exporter = injector.get(SystematikExporter)
-    exporter.ead_export("/tmp/systematik_ead.xml")
+    exporter.full_export()
